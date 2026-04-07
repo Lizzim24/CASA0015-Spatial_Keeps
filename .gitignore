@@ -1,0 +1,4 @@
+mycollection/lib/firebase_options.dart
+mycollection/ios/Runner/GoogleService-Info.plist
+mycollection/macos/Runner/GoogleService-Info.plist
+mycollection/android/app/google-services.json
