@@ -1,4 +1,4 @@
-package com.example.mycollection
+package com.lizi.spatialkeeps
 
 import io.flutter.embedding.android.FlutterActivity
 

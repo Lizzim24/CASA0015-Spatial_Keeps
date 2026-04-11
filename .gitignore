@@ -1,4 +1,19 @@
+# Flutter / Dart
+.dart_tool/
+build/
+**/build/
+
+# Android local JDK / generated tooling
+mycollection/android/build/
+mycollection/build/
+
+# Firebase
 mycollection/lib/firebase_options.dart
 mycollection/ios/Runner/GoogleService-Info.plist
 mycollection/macos/Runner/GoogleService-Info.plist
 mycollection/android/app/google-services.json
+
+# macOS
+.DS_Store
+
+mycollection/android/local.properties
