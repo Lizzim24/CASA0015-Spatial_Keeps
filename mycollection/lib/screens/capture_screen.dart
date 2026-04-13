@@ -52,13 +52,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _isUploading = false;
   bool _isCameraReady = false;
   bool _lightAvailable = true;
-  bool _isPublic = true;
+  final bool _isPublic = true;
 
   // --- Logic: Labels & Semantics (For Assessment Scoring) ---
   String get _directionLabel => _classifyDirection(_direction);
   String get _tiltLabel => _classifyTilt(_tilt);
   String get _luxLabel => _classifyLux(_luxValue);
-  String get _spatialMood => '${_luxLabel} · ${_classifyDirection(_direction)} · ${_classifyTilt(_tilt)}';
+  String get _spatialMood => '$_luxLabel · ${_classifyDirection(_direction)} · ${_classifyTilt(_tilt)}';
 
   @override
   void initState() {
