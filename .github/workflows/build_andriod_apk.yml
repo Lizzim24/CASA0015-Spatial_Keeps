@@ -33,6 +33,9 @@ jobs:
         run: |
           git tag "v${{ steps.get_flutter_app_version.outputs.TAG_VERSION }}" || echo "Tag already exists"
 
+      - name: Create local.properties
+        run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > mycollection/android/local.properties
+        
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -41,9 +44,6 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
         working-directory: mycollection
-
-      - name: Create local.properties
-        run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > android/local.properties
 
       - name: Build APK Release
         run: flutter build apk --release
