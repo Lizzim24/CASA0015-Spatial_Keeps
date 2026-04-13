@@ -42,6 +42,9 @@ jobs:
         run: flutter pub get
         working-directory: mycollection
 
+      - name: Create local.properties
+        run: echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > android/local.properties
+
       - name: Build APK Release
         run: flutter build apk --release
         working-directory: mycollection
