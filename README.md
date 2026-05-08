@@ -204,7 +204,7 @@ The map view visualises personal and publicly shared captures spatially, enablin
 
 <p align="center">
   <!-- CAPTURE SCREEN -->
-  <img src="images/capture-screen.png" width="400">
+  <img src="images/capture-screen.png" width="500">
 </p>
 
 The capture workflow records:
@@ -502,11 +502,7 @@ No third-party analytics or advertising systems are included.
 
 # Demo Video
 
-<!-- INSERT DEMO GIF OR VIDEO -->
-
-<p align="center">
-  <img src="images/demo.gif" width="300">
-</p>
+[Watch the Demo Video](https://youtu.be/0K1vNl-B5fE)
 
 ---
 
