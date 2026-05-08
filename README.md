@@ -192,7 +192,7 @@ The home screen provides quick access to:
 
 <p align="center">
   <!-- MAP SCREEN -->
-  <img src="images/map-screen.png" width="300">
+  <img src="images/map-screen.png" width="400">
 </p>
 
 The map view visualises personal and publicly shared captures spatially, enabling different tags exploration.
@@ -204,7 +204,7 @@ The map view visualises personal and publicly shared captures spatially, enablin
 
 <p align="center">
   <!-- CAPTURE SCREEN -->
-  <img src="images/capture-screen.png" width="300">
+  <img src="images/capture-screen.png" width="400">
 </p>
 
 The capture workflow records:
@@ -221,7 +221,7 @@ The capture workflow records:
 
 <p align="center">
   <!-- ARCHIVE SCREEN -->
-  <img src="images/archive-screen.png" width="300">
+  <img src="images/archive-screen.png" width="900">
 </p>
 
 The Spatial Archive is the core reflective interface of *Spatial Keeps*, designed to organise captured memories through environmental and contextual relationships rather than simple chronological storage.
@@ -255,7 +255,7 @@ Together, these views reposition personal photography as a form of environmental
 
 <p align="center">
   <!-- Profile SCREEN -->
-  <img src="images/proflie-screen.png" width="300">
+  <img src="images/profile-screen.png" width="400">
 </p>
 
 The Profile Page acts as a reflective summary space within *Spatial Keeps*, presenting how the user’s environmental memories accumulate over time with all the setting functions.
