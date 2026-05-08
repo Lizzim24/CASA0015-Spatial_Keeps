@@ -5,28 +5,12 @@ import 'package:flutter/material.dart';
 import 'calendar_day_photos_screen.dart';
 
 const List<String> _monthNames = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 const List<String> _weekdayShort = [
-  'Mon',
-  'Tue',
-  'Wed',
-  'Thu',
-  'Fri',
-  'Sat',
-  'Sun',
+  'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
 ];
 
 String _formatMonthYear(DateTime d) => '${_monthNames[d.month - 1]} ${d.year}';
@@ -39,15 +23,36 @@ String _dayKey(DateTime d) {
 
 DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
+// ─── Helper: pick best non-empty value ────────────────────────────────────
+
+/// Returns [semantic] if non-empty, else [label] if non-empty, else ''.
+/// Prevents "Unknown X" fallback for old captures that only stored labels.
+String _bestSensorText(String? semantic, String? label) {
+  final s = (semantic ?? '').trim();
+  if (s.isNotEmpty) return s;
+  final l = (label ?? '').trim();
+  if (l.isNotEmpty) return l;
+  return '';
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────
+
 class ArchivedPhoto {
   final String id;
   final String title;
   final String imageUrl;
   final DateTime createdAt;
   final double? lux;
-  final String luxSemantic;
-  final String directionSemantic;
-  final String tiltSemantic;
+
+  /// Best available light descriptor — semantic if stored, else label, else ''
+  final String luxDisplay;
+
+  /// Best available direction descriptor
+  final String directionDisplay;
+
+  /// Best available tilt descriptor
+  final String tiltDisplay;
+
   final String placeName;
 
   ArchivedPhoto({
@@ -56,11 +61,16 @@ class ArchivedPhoto {
     required this.imageUrl,
     required this.createdAt,
     required this.lux,
-    required this.luxSemantic,
-    required this.directionSemantic,
-    required this.tiltSemantic,
+    required this.luxDisplay,
+    required this.directionDisplay,
+    required this.tiltDisplay,
     required this.placeName,
   });
+
+  // Keep these for calendar_day_photos_screen compatibility
+  String get luxSemantic => luxDisplay;
+  String get directionSemantic => directionDisplay;
+  String get tiltSemantic => tiltDisplay;
 }
 
 class DayArchive {
@@ -75,11 +85,17 @@ class DayArchive {
 
   String get moodSummary {
     final cover = coverPhoto;
-    return '${cover.luxSemantic} · ${cover.directionSemantic} · ${cover.tiltSemantic}';
+    final parts = <String>[];
+    if (cover.luxDisplay.isNotEmpty) parts.add(cover.luxDisplay);
+    if (cover.directionDisplay.isNotEmpty) parts.add(cover.directionDisplay);
+    if (cover.tiltDisplay.isNotEmpty) parts.add(cover.tiltDisplay);
+    return parts.join(' · ');
   }
 }
 
 enum ArchiveTab { archive, spatial, insights }
+
+// ─── CalendarScreen ───────────────────────────────────────────────────────
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -98,6 +114,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _loadArchives();
   }
+
+  // ─── Data ───────────────────────────────────────────────────────────────
 
   String _topLabel(Map<String, int> counts, {required String fallback}) {
     if (counts.isEmpty) return fallback;
@@ -124,16 +142,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (totalPhotos == 0) {
       return 'No spatial records have been captured yet.';
     }
-
-    return 'Your archive shows a pattern of $topLight environments, most often recorded at $topLocation, with captures typically happening in the $topTime. The dominant viewing behaviour suggests $topDirection, forming a personal record of how you experience space across $activeDays active day${activeDays == 1 ? '' : 's'}.';
+    return 'Your archive shows a pattern of $topLight environments, most often recorded at $topLocation, '
+        'with captures typically happening in the $topTime. The dominant viewing behaviour suggests '
+        '$topDirection, forming a personal record of how you experience space across '
+        '$activeDays active day${activeDays == 1 ? '' : 's'}.';
   }
 
   Future<void> _loadArchives() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('User not logged in');
-      }
+      if (user == null) throw Exception('User not logged in');
 
       final snapshot = await FirebaseFirestore.instance
           .collection('photos')
@@ -149,6 +167,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
             data['createdAt'] as Timestamp? ?? data['updatedAt'] as Timestamp?;
         if (createdTs == null) continue;
 
+        // Graceful fallback: semantic → label → ''
+        final luxDisplay = _bestSensorText(
+          data['luxSemantic'] as String?,
+          data['luxLabel'] as String?,
+        );
+        final directionDisplay = _bestSensorText(
+          data['directionSemantic'] as String?,
+          data['directionLabel'] as String?,
+        );
+        final tiltDisplay = _bestSensorText(
+          data['tiltSemantic'] as String?,
+          data['tiltLabel'] as String?,
+        );
+
         photos.add(
           ArchivedPhoto(
             id: doc.id,
@@ -156,12 +188,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
             imageUrl: (data['imageUrl'] ?? '').toString(),
             createdAt: createdTs.toDate(),
             lux: (data['lux'] as num?)?.toDouble(),
-            luxSemantic: (data['luxSemantic'] ?? 'Unknown Light').toString(),
-            directionSemantic:
-                (data['directionSemantic'] ?? 'Unknown Direction').toString(),
-            tiltSemantic: (data['tiltSemantic'] ?? 'Unknown Perspective')
-                .toString(),
-            placeName: (data['placeName'] ?? 'Unknown Place').toString(),
+            luxDisplay: luxDisplay,
+            directionDisplay: directionDisplay,
+            tiltDisplay: tiltDisplay,
+            placeName: (data['placeName'] ?? '').toString(),
           ),
         );
       }
@@ -178,22 +208,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _archivesByDay.clear();
       for (final entry in grouped.entries) {
         final date = _startOfDay(entry.value.first.createdAt);
-        _archivesByDay[entry.key] = DayArchive(date: date, photos: entry.value);
+        _archivesByDay[entry.key] =
+            DayArchive(date: date, photos: entry.value);
       }
     } catch (e) {
       debugPrint('Calendar load error: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load archive: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load archive: $e')),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // ─── Month list ──────────────────────────────────────────────────────────
 
   List<DateTime> _buildMonthList() {
     if (_archivesByDay.isEmpty) {
@@ -209,12 +238,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final List<DateTime> months = [];
     DateTime cursor = DateTime(oldest.year, oldest.month);
-
     while (!cursor.isAfter(DateTime(newest.year, newest.month))) {
       months.add(DateTime(cursor.year, cursor.month));
       cursor = DateTime(cursor.year, cursor.month + 1);
     }
-
     months.sort((a, b) => b.compareTo(a));
     return months;
   }
@@ -223,33 +250,279 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            CalendarDayPhotosScreen(date: archive.date, photos: archive.photos),
+        builder: (_) => CalendarDayPhotosScreen(
+          date: archive.date,
+          photos: archive.photos,
+        ),
       ),
     );
   }
 
-  Color _semanticTint(String semantic) {
-    final text = semantic.toLowerCase();
+  // ─── Semantic tint ───────────────────────────────────────────────────────
 
-    if (text.contains('dim')) {
-      return const Color(0xFF5D6470);
-    }
-    if (text.contains('soft')) {
-      return const Color(0xFFD8C39A);
-    }
-    if (text.contains('balanced')) {
-      return const Color(0xFFE6D5B8);
-    }
-    if (text.contains('open')) {
-      return const Color(0xFFF0E6C9);
-    }
-    if (text.contains('intense')) {
+  Color _semanticTint(String display) {
+    final text = display.toLowerCase();
+    if (text.contains('dim')) return const Color(0xFF5D6470);
+    if (text.contains('soft')) return const Color(0xFFD8C39A);
+    if (text.contains('balanced')) return const Color(0xFFE6D5B8);
+    if (text.contains('open')) return const Color(0xFFF0E6C9);
+    if (text.contains('intense') || text.contains('bright')) {
       return const Color(0xFFF8EDCF);
     }
-
-    return const Color(0xFFE6D5B8);
+    if (text.contains('indoor')) return const Color(0xFFE6D5B8);
+    // Default warm neutral for any non-empty value
+    if (text.isNotEmpty) return const Color(0xFFE6D5B8);
+    return const Color(0xFFE8E8E8);
   }
+
+  // ─── Tab views ───────────────────────────────────────────────────────────
+
+  Widget _buildArchiveView() {
+    final months = _buildMonthList();
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 32),
+      children: [_buildTopHeader(), ...months.map(_buildMonthSection)],
+    );
+  }
+
+  Widget _buildSpatialView() {
+    final allArchives = _archivesByDay.values.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+      children: [
+        _buildTopHeader(),
+        const SizedBox(height: 8),
+        const Text(
+          'Spatial Highlights',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...allArchives.take(12).map((archive) {
+          final cover = archive.coverPhoto;
+          final tint = _semanticTint(cover.luxDisplay);
+          final moodSummary = archive.moodSummary;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: Colors.grey[200],
+                    image: cover.imageUrl.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(cover.imageUrl),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${archive.date.day} ${_monthNames[archive.date.month - 1]}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (moodSummary.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          moodSummary,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black54,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (cover.luxDisplay.isNotEmpty)
+                            _buildChip(cover.luxDisplay, tint),
+                          if (cover.directionDisplay.isNotEmpty)
+                            _buildChip(cover.directionDisplay,
+                                const Color(0xFFF2F2F2)),
+                          if (cover.tiltDisplay.isNotEmpty)
+                            _buildChip(cover.tiltDisplay,
+                                const Color(0xFFF2F2F2)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildInsightsView() {
+    final archives = _archivesByDay.values.toList();
+
+    int totalPhotos = 0;
+    final Map<String, int> lightCounts = {};
+    final Map<String, int> directionCounts = {};
+    final Map<String, int> locationCounts = {};
+    final Map<String, int> timeBucketCounts = {};
+
+    for (final archive in archives) {
+      totalPhotos += archive.photos.length;
+      for (final photo in archive.photos) {
+        // Only count non-empty values so they don't pollute stats
+        if (photo.luxDisplay.isNotEmpty) {
+          lightCounts[photo.luxDisplay] =
+              (lightCounts[photo.luxDisplay] ?? 0) + 1;
+        }
+        if (photo.directionDisplay.isNotEmpty) {
+          directionCounts[photo.directionDisplay] =
+              (directionCounts[photo.directionDisplay] ?? 0) + 1;
+        }
+        if (photo.placeName.isNotEmpty) {
+          locationCounts[photo.placeName] =
+              (locationCounts[photo.placeName] ?? 0) + 1;
+        }
+        final bucket = _timeBucket(photo.createdAt.hour);
+        timeBucketCounts[bucket] = (timeBucketCounts[bucket] ?? 0) + 1;
+      }
+    }
+
+    final topLight =
+        _topLabel(lightCounts, fallback: 'No light data');
+    final topDirection =
+        _topLabel(directionCounts, fallback: 'No direction data');
+    final topLocation =
+        _topLabel(locationCounts, fallback: 'No location data');
+    final topTime =
+        _topLabel(timeBucketCounts, fallback: 'No activity pattern');
+
+    final story = _buildSpaceStory(
+      totalPhotos: totalPhotos,
+      activeDays: archives.length,
+      topLight: topLight,
+      topDirection: topDirection,
+      topLocation: topLocation,
+      topTime: topTime,
+    );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+      children: [
+        _buildTopHeader(),
+        const SizedBox(height: 8),
+        const Text(
+          'Spatial Insights',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _buildInsightCard(
+          title: 'Archive Volume',
+          value: '$totalPhotos captures',
+          subtitle:
+              '${archives.length} active day${archives.length == 1 ? '' : 's'}',
+        ),
+        _buildInsightCard(
+          title: 'Most Frequent Location',
+          value: topLocation,
+          subtitle:
+              'The place you most often recorded as part of your spatial memory',
+        ),
+        _buildInsightCard(
+          title: 'Dominant Light Mood',
+          value: topLight,
+          subtitle:
+              'The most common environmental light quality across your archive',
+        ),
+        _buildInsightCard(
+          title: 'Viewing Behaviour',
+          value: topDirection,
+          subtitle:
+              'The most common facing orientation in your captured experiences',
+        ),
+        _buildInsightCard(
+          title: 'Active Time Pattern',
+          value: topTime,
+          subtitle:
+              'The time period when you most frequently capture your environment',
+        ),
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Space Story',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                story,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Shared widgets ──────────────────────────────────────────────────────
 
   Widget _buildTopHeader() {
     return Padding(
@@ -274,27 +547,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   label: 'Archive',
                   icon: Icons.calendar_today_outlined,
                   active: _currentTab == ArchiveTab.archive,
-                  onTap: () {
-                    setState(() => _currentTab = ArchiveTab.archive);
-                  },
+                  onTap: () => setState(() => _currentTab = ArchiveTab.archive),
                 ),
                 const SizedBox(width: 10),
                 _buildTopTab(
                   label: 'Spatial',
                   icon: Icons.auto_awesome_outlined,
                   active: _currentTab == ArchiveTab.spatial,
-                  onTap: () {
-                    setState(() => _currentTab = ArchiveTab.spatial);
-                  },
+                  onTap: () => setState(() => _currentTab = ArchiveTab.spatial),
                 ),
                 const SizedBox(width: 10),
                 _buildTopTab(
                   label: 'Insights',
                   icon: Icons.bar_chart_outlined,
                   active: _currentTab == ArchiveTab.insights,
-                  onTap: () {
-                    setState(() => _currentTab = ArchiveTab.insights);
-                  },
+                  onTap: () =>
+                      setState(() => _currentTab = ArchiveTab.insights),
                 ),
               ],
             ),
@@ -344,257 +612,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildArchiveView() {
-    final months = _buildMonthList();
-
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 32),
-      children: [_buildTopHeader(), ...months.map(_buildMonthSection)],
-    );
-  }
-
-  Widget _buildSpatialView() {
-    final allArchives = _archivesByDay.values.toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-      children: [
-        _buildTopHeader(),
-        const SizedBox(height: 8),
-        const Text(
-          'Spatial Highlights',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...allArchives.take(12).map((archive) {
-          final cover = archive.coverPhoto;
-          final tint = _semanticTint(cover.luxSemantic);
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    color: Colors.grey[200],
-                    image: cover.imageUrl.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(cover.imageUrl),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${archive.date.day} ${_monthNames[archive.date.month - 1]}',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        archive.moodSummary,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black54,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildChip(cover.luxSemantic, tint),
-                          _buildChip(
-                            cover.directionSemantic,
-                            const Color(0xFFF2F2F2),
-                          ),
-                          _buildChip(
-                            cover.tiltSemantic,
-                            const Color(0xFFF2F2F2),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildInsightsView() {
-    final archives = _archivesByDay.values.toList();
-
-    int totalPhotos = 0;
-    final Map<String, int> lightCounts = {};
-    final Map<String, int> directionCounts = {};
-    final Map<String, int> locationCounts = {};
-    final Map<String, int> timeBucketCounts = {};
-
-    for (final archive in archives) {
-      totalPhotos += archive.photos.length;
-
-      for (final photo in archive.photos) {
-        lightCounts[photo.luxSemantic] =
-            (lightCounts[photo.luxSemantic] ?? 0) + 1;
-        directionCounts[photo.directionSemantic] =
-            (directionCounts[photo.directionSemantic] ?? 0) + 1;
-        locationCounts[photo.placeName] =
-            (locationCounts[photo.placeName] ?? 0) + 1;
-
-        final hour = photo.createdAt.hour;
-        final bucket = _timeBucket(hour);
-        timeBucketCounts[bucket] = (timeBucketCounts[bucket] ?? 0) + 1;
-      }
-    }
-
-    String topLight = _topLabel(lightCounts, fallback: 'No light data');
-    String topDirection = _topLabel(
-      directionCounts,
-      fallback: 'No direction data',
-    );
-    String topLocation = _topLabel(
-      locationCounts,
-      fallback: 'No location data',
-    );
-    String topTime = _topLabel(
-      timeBucketCounts,
-      fallback: 'No activity pattern',
-    );
-
-    final story = _buildSpaceStory(
-      totalPhotos: totalPhotos,
-      activeDays: archives.length,
-      topLight: topLight,
-      topDirection: topDirection,
-      topLocation: topLocation,
-      topTime: topTime,
-    );
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-      children: [
-        _buildTopHeader(),
-        const SizedBox(height: 8),
-        const Text(
-          'Spatial Insights',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 18),
-
-        _buildInsightCard(
-          title: 'Archive Volume',
-          value: '$totalPhotos captures',
-          subtitle:
-              '${archives.length} active day${archives.length == 1 ? '' : 's'}',
-        ),
-
-        _buildInsightCard(
-          title: 'Most Frequent Location',
-          value: topLocation,
-          subtitle:
-              'The place you most often recorded as part of your spatial memory',
-        ),
-
-        _buildInsightCard(
-          title: 'Dominant Light Mood',
-          value: topLight,
-          subtitle:
-              'The most common environmental light quality across your archive',
-        ),
-
-        _buildInsightCard(
-          title: 'Viewing Behaviour',
-          value: topDirection,
-          subtitle:
-              'The most common facing orientation in your captured experiences',
-        ),
-
-        _buildInsightCard(
-          title: 'Active Time Pattern',
-          value: topTime,
-          subtitle:
-              'The time period when you most frequently capture your environment',
-        ),
-
-        Container(
-          margin: const EdgeInsets.only(top: 4),
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Space Story',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                story,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -677,11 +694,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final mondayOffset = firstDay.weekday - 1;
 
     final List<Widget> cells = [];
-
     for (int i = 0; i < mondayOffset; i++) {
       cells.add(const SizedBox());
     }
-
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(year, month, day);
       final key = _dayKey(date);
@@ -749,7 +764,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
     }
 
-    final tint = _semanticTint(archive.coverPhoto.luxSemantic);
+    final tint = _semanticTint(archive.coverPhoto.luxDisplay);
 
     return GestureDetector(
       onTap: () => _openDayArchive(archive),
@@ -816,6 +831,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  // ─── Main build ──────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {

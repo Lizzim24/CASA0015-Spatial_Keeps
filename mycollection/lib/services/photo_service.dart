@@ -315,10 +315,17 @@ class PhotoService {
     return result;
   }
 
-  Future<List<GroupedLocation>> getMyGroupedLocations() async {
-    final docs = await getMyPhotos();
-    return groupPhotosByLocation(docs);
-  }
+  Future<List<GroupedLocation>> getMyGroupedLocations({String? tag}) async {
+  final docs = tag != null
+      ? await _firestore
+          .collection('photos')
+          .where('ownerId', isEqualTo: _auth.currentUser!.uid)
+          .where('tags', arrayContains: tag)
+          .get()
+          .then((s) => s.docs)
+      : await getMyPhotos();
+  return groupPhotosByLocation(docs);
+}
 
   Future<List<GroupedLocation>> getPublicGroupedLocations({String? tag}) async {
     final docs = await getPublicPhotos(tag: tag);

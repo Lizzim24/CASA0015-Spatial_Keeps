@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mycollection</string>
+	<string>Spatial Keeps</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,9 +27,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs access to your camera to capture photos.</string>
+	<string>Spatial Keeps needs camera access to capture photos of your environment.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to your photo library to upload images.</string>
+	<string>Spatial Keeps needs photo library access to select and upload images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Spatial Keeps needs permission to save photos to your library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Spatial Keeps uses your location to tag where photos were taken.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Spatial Keeps uses your location to tag where photos were taken.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Spatial Keeps uses motion sensors to detect tilt and orientation when capturing.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -49,12 +57,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSMotionUsageDescription</key>
-	<string>This app uses motion sensors to understand spatial context.</string>
-	<key>NSSensorKitUsageDetail</key>
-	<dict>
-		<key>SRSensorUsageAmbientLightSensor</key>
-		<string>This app uses ambient light data to analyse spatial environments.</string>
-	</dict>
 </dict>
 </plist>

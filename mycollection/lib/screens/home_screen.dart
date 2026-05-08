@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:mycollection/models/grouped_location.dart';
+import 'package:mycollection/screens/album_edit_screen.dart';
 import 'package:mycollection/screens/capture_screen.dart';
 import 'package:mycollection/screens/album_details_screen.dart';
 import 'package:mycollection/screens/all_albums_screen.dart';
@@ -29,12 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadHomeData();
   }
 
+  // ─── Data ─────────────────────────────────────────────────────────────────
+
   Future<void> _loadHomeData() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-      });
-    }
+    if (mounted) setState(() => _isLoading = true);
 
     try {
       final albums = await _photoService.getMyGroupedAlbums();
@@ -52,11 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text('Failed to load home data: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -77,12 +72,14 @@ class _HomeScreenState extends State<HomeScreen> {
         'id': doc.id,
         'imageUrl': data['imageUrl'] ?? '',
         'title': data['title'] ?? 'Untitled',
-        'placeName': data['placeName'] ?? 'Unknown Place',
-        'luxSemantic': data['luxSemantic'] ?? 'Unknown Light',
+        'placeName': data['placeName'] ?? '',
+        'luxSemantic': data['luxSemantic'] ?? data['luxLabel'] ?? '',
         'createdAt': data['createdAt'],
       };
     }).toList();
   }
+
+  // ─── Navigation ───────────────────────────────────────────────────────────
 
   Future<void> _openAlbum(GroupedLocation album) async {
     await Navigator.push(
@@ -94,7 +91,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-
     _loadHomeData();
   }
 
@@ -102,13 +98,30 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CaptureScreen(
-          preselectedAlbum: preselectedAlbum,
-        ),
+        builder: (_) => CaptureScreen(preselectedAlbum: preselectedAlbum),
+      ),
+    );
+    _loadHomeData();
+  }
+
+  Future<void> _createNewAlbum() async {
+    final albumName = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AlbumEditScreen(),
       ),
     );
 
-    _loadHomeData();
+    if (albumName != null && mounted) {
+      // Go straight to capture with this album preselected
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CaptureScreen(preselectedAlbum: albumName),
+        ),
+      );
+      _loadHomeData();
+    }
   }
 
   void _openPhotoDetail(String photoId) {
@@ -123,6 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
   String _formatTime(Timestamp? ts) {
     if (ts == null) return '';
     final d = ts.toDate();
@@ -131,11 +146,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return '$hour:$minute';
   }
 
+  // ─── Widgets ──────────────────────────────────────────────────────────────
+
   Widget _buildRecentActivityCard(Map<String, dynamic> photo) {
     final imageUrl = (photo['imageUrl'] ?? '').toString();
     final title = (photo['title'] ?? 'Untitled').toString();
-    final placeName = (photo['placeName'] ?? 'Unknown Place').toString();
-    final luxSemantic = (photo['luxSemantic'] ?? 'Unknown Light').toString();
+    final placeName = (photo['placeName'] ?? '').toString();
+    final luxSemantic = (photo['luxSemantic'] ?? '').toString();
     final createdAt = photo['createdAt'] as Timestamp?;
     final photoId = (photo['id'] ?? '').toString();
 
@@ -188,27 +205,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    placeName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
+                  if (placeName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      placeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    luxSemantic,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w600,
+                  ],
+                  if (luxSemantic.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      luxSemantic,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -216,17 +234,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   _formatTime(createdAt),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: Colors.grey,
-                ),
+                const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
               ],
             ),
           ],
@@ -245,15 +256,14 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(height: 10),
           Text(
             'No recent captures yet',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: Colors.grey, fontSize: 13),
           ),
         ],
       ),
     );
   }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onRefresh: _loadHomeData,
         child: CustomScrollView(
           slivers: [
+            // ── App bar ──────────────────────────────────────────────────
             SliverAppBar(
               pinned: true,
               backgroundColor: const Color(0xFFFDFCFB),
@@ -280,21 +291,10 @@ class _HomeScreenState extends State<HomeScreen> {
               toolbarHeight: 72,
               titleSpacing: 24,
               title: const SizedBox.shrink(),
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.search,
-                      color: Colors.black87,
-                      size: 30,
-                    ),
-                    onPressed: () {},
-                  ),
-                ),
-              ],
+              actions: const [],
             ),
 
+            // ── Hero section ─────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
@@ -334,6 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 18),
 
+                    // Hero capture card
                     GestureDetector(
                       onTap: () => _openCapture(),
                       child: Container(
@@ -377,11 +378,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.96),
+                                  color:
+                                      Colors.white.withValues(alpha: 0.96),
                                   borderRadius: BorderRadius.circular(36),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.10),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.10),
                                       blurRadius: 14,
                                       offset: const Offset(0, 4),
                                     ),
@@ -413,6 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
+            // ── Albums header ─────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 18, 24, 6),
@@ -427,33 +431,66 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.black87,
                       ),
                     ),
-                    TextButton(
-                      onPressed: _albums.isEmpty
-                          ? null
-                          : () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AllAlbumsScreen(
-                                    locations: _albums,
+                    Row(
+                      children: [
+                        // New album button
+                        GestureDetector(
+                          onTap: _createNewAlbum,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add, size: 14, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'NEW',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                              ).then((_) => _loadHomeData());
-                            },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.black87,
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 0),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text(
-                        'SEE ALL',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.4,
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        // See all button
+                        TextButton(
+                          onPressed: _albums.isEmpty
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          AllAlbumsScreen(locations: _albums),
+                                    ),
+                                  ).then((_) => _loadHomeData());
+                                },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'SEE ALL',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -474,20 +511,48 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
+            // ── Albums horizontal list ────────────────────────────────────
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 265,
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _albums.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No albums yet. Start capturing and create one.',
-                              style: TextStyle(color: Colors.black54),
+                        ? Center(
+                            child: GestureDetector(
+                              onTap: _createNewAlbum,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.black.withValues(
+                                          alpha: 0.08)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add,
+                                        size: 18, color: Colors.black45),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Create your first album',
+                                      style: TextStyle(
+                                        color: Colors.black54,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           )
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                            padding:
+                                const EdgeInsets.fromLTRB(24, 0, 24, 0),
                             scrollDirection: Axis.horizontal,
                             itemCount: _albums.length,
                             separatorBuilder: (_, _) =>
@@ -498,15 +563,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               return GestureDetector(
                                 onTap: () => _openAlbum(album),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Stack(
                                       children: [
                                         Container(
                                           width: 170,
-                                          height: 170,
+                                          height: 200,
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(24),
+                                            borderRadius:
+                                                BorderRadius.circular(24),
                                             image: DecorationImage(
                                               image: NetworkImage(
                                                 album.coverImageUrl.isNotEmpty
@@ -517,28 +584,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withValues(
-                                                  alpha: 0.12,
-                                                ),
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.12),
                                                 blurRadius: 20,
-                                                offset: const Offset(0, 10),
+                                                offset:
+                                                    const Offset(0, 10),
                                               ),
                                             ],
                                           ),
                                         ),
+                                        // Add photo to album button
                                         Positioned(
                                           top: 8,
                                           right: 8,
                                           child: GestureDetector(
                                             onTap: () => _openCapture(
-                                              preselectedAlbum: album.placeName,
+                                              preselectedAlbum:
+                                                  album.placeName,
                                             ),
                                             child: Container(
                                               padding: const EdgeInsets.all(6),
                                               decoration: BoxDecoration(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.92,
-                                                ),
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.92),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: const Icon(
@@ -585,6 +653,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
+            // ── Recent activity ───────────────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 10),
@@ -609,18 +678,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? _buildEmptyRecentState()
                         : Column(
                             children: _recentPhotos
-                                .map((photo) => _buildRecentActivityCard(photo))
+                                .map(_buildRecentActivityCard)
                                 .toList(),
                           ),
               ),
             ),
 
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
-            ),
-          ],
-        ),
-      ),
-    );
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
+        )
+
+      );
   }
 }
